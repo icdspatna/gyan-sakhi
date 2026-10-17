@@ -30,25 +30,29 @@ SYSTEM_INSTRUCTION = (
     "5. संवाद शैली: जवाब हमेशा स्पष्ट, बिंदुवार (bullet points), पढ़ने में आसान और संक्षिप्त रखें ताकि WhatsApp पर आसानी से समझा जा सके। "
     "गंभीर स्वास्थ्य स्थिति होने पर हमेशा प्राथमिक स्वास्थ्य केंद्र (PHC) या आशा दीदी से मिलने की सलाह दें।"
 )
+
 def get_gemini_reply(user_text):
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
-        return "एरर: GEMINI_API_KEY नहीं मिली!"
+        print("Error: GEMINI_API_KEY environment variable not found!")
+        return "नमस्ते सखी! सिस्टम में API Key कॉन्फ़िगर नहीं है।"
 
     try:
         client = genai.Client(api_key=api_key)
         response = client.models.generate_content(
-            model="gemini-3.8-flash"
+            model="gemini-3.8-flash",
             contents=user_text,
             config=types.GenerateContentConfig(
                 system_instruction=SYSTEM_INSTRUCTION,
-                temperature=0.7,
-            )
+                temperature=0.4,
+                max_output_tokens=400,
+            ),
         )
-        return response.text
+        if response.text:
+            return response.text
     except Exception as e:
-        # असली एरर को सीधे WhatsApp पर भेजें
-        return f"Gemini Error Details: {str(e)}"
+        print(f"Gemini API Error: {e}")
+        return "नमस्ते सखी! मुझे आपका सवाल मिला, लेकिन तकनीकी समस्या के कारण अभी जवाब नहीं बन पाया।"
 
 @app.route("/", methods=["GET", "HEAD"])
 def home():
