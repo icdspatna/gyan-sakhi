@@ -32,7 +32,7 @@ def get_gemini_reply(user_text):
             config=types.GenerateContentConfig(
                 system_instruction=SYSTEM_INSTRUCTION,
                 temperature=0.4,
-                max_output_tokens=400,
+                max_output_tokens=1000,
             ),
         )
         if response.text:
