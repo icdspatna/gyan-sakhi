@@ -42,24 +42,26 @@ SYSTEM_INSTRUCTION = """
 """
 
 def get_groq_reply(user_text):
-    if not GROQ_API_KEY:
-        print("Error: GROQ_API_KEY environment variable missing!")
-        return "नमस्ते सखी! सिस्टम में Groq API Key सेट नहीं है।"
+  groq_api_key = os.environ.get("GROQ_API_KEY")
+  if not groq_api_key:
+    print("Error: GROQ_API_KEY missing!")
+    return "नमस्ते सखी! सिस्टम में Groq API Key सेट नहीं है।"
 
-    try:
-        response = groq_client.chat.completions.create(
-            model="llama-3.1-8b-instant",  # <--- इसे 8b-instant करें
-            messages=[
-                {"role": "system", "content": SYSTEM_INSTRUCTION},
-                {"role": "user", "content": user_text},
-            ],
-            temperature=0.3,
-            max_tokens=800,
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        print(f"Groq API Error: {e}")
-        return "नमस्ते सखी! मुझे आपका संदेश मिला, लेकिन तकनीकी कारण से जवाब नहीं बन पाया। कृपया थोड़ी देर बाद पुनः पूछें।"
+  try:
+    client = Groq(api_key=groq_api_key.strip())
+    response = client.chat.completions.create(
+        model="mixtral-8x7b-32768",  # <--- इसे इस्तेमाल करें
+        messages=[
+            {"role": "system", "content": SYSTEM_INSTRUCTION},
+            {"role": "user", "content": user_text},
+        ],
+        temperature=0.3,
+        max_tokens=800,
+    )
+    return response.choices[0].message.content
+  except Exception as e:
+    print(f"Groq API Error: {e}")
+    return "नमस्ते सखी! तकनीकी समस्या के कारण अभी जवाब नहीं बन पाया।"
 
 @app.route("/", methods=["GET", "HEAD"])
 def home():
