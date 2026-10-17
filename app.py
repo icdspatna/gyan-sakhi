@@ -19,7 +19,11 @@ SYSTEM_INSTRUCTION = (
 
 client = None
 if GEMINI_API_KEY:
-    client = genai.Client(api_key=GEMINI_API_KEY)
+    try:
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        print("Gemini Client initialized successfully.")
+    except Exception as e:
+        print(f"Error initializing Gemini: {e}")
 
 @app.route("/", methods=["GET", "HEAD"])
 def home():
@@ -39,8 +43,8 @@ def verify():
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json()
-    print("--- NEW WEBHOOK EVENT ---")
-    print("Payload:", data)
+    print("--- WEBHOOK EVENT RECEIVED ---")
+    print("Raw Data:", data)
 
     try:
         entry = data.get("entry", [])[0]
@@ -49,16 +53,16 @@ def webhook():
         messages = value.get("messages", [])
 
         if not messages:
-            print("Status update received, no user message.")
+            print("No new message from user (event is delivery receipt/read status).")
             return "EVENT_RECEIVED", 200
 
         user_msg = messages[0]
         from_number = user_msg.get("from")
         text = user_msg.get("text", {}).get("body", "")
 
-        print(f"User Message from {from_number}: {text}")
+        print(f"Incoming message from {from_number}: {text}")
 
-        # Gemini AI Call
+        # 1. Gemini AI Call
         ai_reply = "नमस्ते! मैं ज्ञान सखी हूँ।"
         if client and text:
             try:
@@ -67,12 +71,12 @@ def webhook():
                     contents=f"{SYSTEM_INSTRUCTION}\n\nछात्रा का सवाल: {text}"
                 )
                 ai_reply = response.text
-                print(f"Gemini Replied: {ai_reply[:50]}...")
+                print(f"Gemini Generated Reply: {ai_reply[:60]}...")
             except Exception as e:
                 print(f"Gemini API Error: {e}")
-                ai_reply = "सखी, मुझे आपका संदेश मिला। मैं अभी सोचने में व्यस्त हूँ, कृपया थोड़ी देर बाद पुनः प्रयास करें।"
+                ai_reply = "नमस्ते सखी! मुझे आपका सवाल मिला, लेकिन अभी जवाब तैयार करने में समस्या आ रही है।"
 
-        # Send WhatsApp Message
+        # 2. Send WhatsApp Message
         send_url = f"https://graph.facebook.com/v22.0/{PHONE_NUMBER_ID}/messages"
         headers = {
             "Authorization": f"Bearer {ACCESS_TOKEN}",
@@ -86,11 +90,11 @@ def webhook():
         }
 
         resp = requests.post(send_url, json=payload, headers=headers)
-        print(f"WhatsApp API Status: {resp.status_code}")
-        print(f"WhatsApp API Response: {resp.text}")
+        print(f"Meta Graph API Status Code: {resp.status_code}")
+        print(f"Meta Graph API Response: {resp.text}")
 
     except Exception as e:
-        print(f"Processing Error: {e}")
+        print(f"Error handling webhook payload: {e}")
 
     return "EVENT_RECEIVED", 200
 
