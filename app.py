@@ -109,7 +109,7 @@ def webhook():
         print(f"Incoming message from {from_number}: {text}")
 
       # सामान्य शब्दों पर बिना AI के त्वरित और मुफ़्त जवाब (Token Saver)
-		clean_text = text.lower()
+        clean_text = text.lower()
         blocked_keywords = ["सेक्स", "sex", "कंडोम", "गर्भपात", "प्रेगनेंसी टेस्ट"]
 
         if any(word in clean_text for word in blocked_keywords):
@@ -120,7 +120,12 @@ def webhook():
                 " दीदी या सरकारी हेल्पलाइन 104 से संपर्क करें।"
             )
         elif clean_text in ["hi", "hello", "namaste", "नमस्ते", "प्रणाम"]:
-            # इसके आगे का कोड वैसा ही रहेगा...
+            ai_reply = (
+                "नमस्ते सखी! 🙏 मैं 'ज्ञान सखी' हूँ — बिहार की छात्राओं के लिए आपकी अपनी डिजिटल दीदी।\n\n"
+                "आप मुझसे पढ़ाई (गणित, विज्ञान, अंग्रेज़ी), मैट्रिक/इंटर के बाद करियर, "
+                "मुख्यमंत्री कन्या उत्थान योजना (MKUY) या स्वास्थ्य से जुड़ा कोई भी सवाल पूछ सकती हैं।\n\n"
+                "बताइए, आज मैं आपकी क्या मदद करूँ?"
+            )
         elif "helpline" in clean_text or "हेल्पलाइन" in clean_text:
             ai_reply = (
                 "📌 **ज़रूरी हेल्पलाइन नंबर:**\n\n"
