@@ -50,7 +50,7 @@ def get_groq_reply(user_text):
   try:
     client = Groq(api_key=groq_api_key.strip())
     response = client.chat.completions.create(
-        model="mixtral-8x7b-32768",  # <--- इसे इस्तेमाल करें
+        model="openai/gpt-oss-120b",  # <--- स्क्रीन पर दिख रहा एक्टिव मॉडल
         messages=[
             {"role": "system", "content": SYSTEM_INSTRUCTION},
             {"role": "user", "content": user_text},
