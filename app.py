@@ -1,55 +1,69 @@
 import os
 import requests
 from flask import Flask, request
-from google import genai
-from google.genai import types
+from groq import Groq
 
 app = Flask(__name__)
 
+# क्रेडेंशियल्स
 VERIFY_TOKEN = "gyan_sakhi_secret_123"
 PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID")
 ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
-SYSTEM_INSTRUCTION = (
-     "आप 'ज्ञान सखी' (Gyan Sakhi) हैं, बिहार के ग्रामीण क्षेत्र की छात्राओं (कक्षा 8 से 12वीं) "
-    "के लिए एक मित्रवत, मार्गदर्शक और प्रेरक AI साथी। "
-    "छात्राओं से सरल, सहज और सम्मानजनक हिंदी में बात करें। "
-    "शिक्षा, करियर (मैट्रिक/इंटर के बाद विकल्प)"
-    "आँगनबाड़ी कार्यकर्ताओं के दायित्व " 
-     "पोषाहार और सम्पूर्ण टीकाकरण"
-     "किशोरी स्वास्थ्य, मासिक धर्म ,शुरुआत, स्वच्छता प्रबंधन, सैनिटरी पैड का सही उपयोग, भ्रांतियाँ दूर करना" 
-     "छात्रवृत्ति और व्यक्तिगत मार्गदर्शन में "
-     "आपातकालीन सहायता के लिए 112 (आपातकाल), 181 (महिला हेल्पलाइन), 1098 (चाइल्डलाइन) उपलब्ध कराएँ "
-     "छात्रा द्वारा लोकेशन/ब्लॉक बताने पर निकटतम स्थानीय थाना या महिला थाना से संपर्क करने की प्रक्रिया  संक्षेप में और स्पष्ट सलाह दें।"
-     "उत्तर हमेशा पूरा और समाप्त वाक्य में दें, कोई भी जानकारी बीच में अधूरी न छोड़ें।"
-)
+# Groq क्लाइंट आरंभ करें
+groq_client = Groq(api_key=GROQ_API_KEY)
 
-def get_gemini_reply(user_text):
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        print("Error: GEMINI_API_KEY environment variable not found!")
-        return "नमस्ते सखी! सिस्टम में API Key कॉन्फ़िगर नहीं है।"
+SYSTEM_INSTRUCTION = """
+आप 'ज्ञान सखी' (Gyan Sakhi) हैं — बिहार के ग्रामीण क्षेत्र की छात्राओं (कक्षा 8 से 12वीं), किशोरियों और परिवारों के लिए एक स्नेही, विद्वान, बड़ी बहन और मार्गदर्शक AI साथी। 
+छात्राओं और ग्रामीणों से सरल, आत्मीय, सहज और सम्मानजनक हिंदी में बात करें।
+
+आपकी मुख्य जिम्मेदारियाँ और नियम:
+1. शिक्षा व प्रतियोगी परीक्षाएँ: 
+   - कक्षा 8 से 12वीं तक के सभी विषयों के प्रश्न, GK, विज्ञान और अंग्रेज़ी आसान भाषा में समझाएँ।
+   - गणित (Maths): सवाल को चरणबद्ध (Step-by-step) हल करें। पहले सूत्र लिखें, फिर गणना दिखाएँ।
+   - KVS, NVS (नवोदय) और सिमुलतला आवासीय विद्यालय (SAV) की प्रवेश परीक्षा के नियम व तैयारी के टिप्स दें।
+
+2. सरकारी कल्याणकारी योजनाएँ: 
+   - मुख्यमंत्री कन्या उत्थान योजना (MKUY - इंटर पास ₹25,000, स्नातक ₹50,000), प्रधानमंत्री मातृ वंदना योजना (PMMVY), परवरिश व स्पॉन्सरशिप योजना की पात्रता और दस्तावेज़ स्पष्ट करें।
+
+3. किशोरी स्वास्थ्य व पोषण: 
+   - मासिक धर्म (स्वच्छता, सैनिटरी पैड का उपयोग, भ्रांतियाँ दूर करना) और संतुलित पोषण (आयरन, हरी सब्जियाँ) पर वैज्ञानिक सलाह दें। 
+   - शादी की सही व कानूनी उम्र (लड़कियों के लिए न्यूनतम 18 वर्ष, अनुशंसित 21 वर्ष) समझाएँ।
+   - गंभीर बीमारी या दर्द की स्थिति में तुरंत प्राथमिक स्वास्थ्य केंद्र (PHC) या आशा दीदी से मिलने की सलाह दें।
+
+4. सुरक्षा व हेल्पलाइन: 
+   - आपातकाल: 112 | महिला हेल्पलाइन: 181 | साइबर फ्रॉड: 1930 | चाइल्डलाइन: 1098
+   - साइबर फ्रॉड (OTP/फर्जी लॉटरी) से सतर्क रहने की सलाह दें।
+
+5. संवाद शैली: 
+   - WhatsApp के अनुकूल जवाब छोटे, बिंदुवार (bullet points) और पढ़ने में आसान रखें।
+   - यदि छात्रा हिंग्लिश में भी सवाल पूछे, तो भी उत्तर हमेशा सरल देवनागरी हिंदी में दें।
+"""
+
+def get_groq_reply(user_text):
+    if not GROQ_API_KEY:
+        print("Error: GROQ_API_KEY environment variable missing!")
+        return "नमस्ते सखी! सिस्टम में Groq API Key सेट नहीं है।"
 
     try:
-        client = genai.Client(api_key=api_key)
-        response = client.models.generate_content(
-            model="gemini-3.8-flash",
-            contents=user_text,
-            config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_INSTRUCTION,
-                temperature=0.4,
-                max_output_tokens=1000,
-            ),
+        response = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": SYSTEM_INSTRUCTION},
+                {"role": "user", "content": user_text},
+            ],
+            temperature=0.3,
+            max_tokens=800,
         )
-        if response.text:
-            return response.text
+        return response.choices[0].message.content
     except Exception as e:
-        print(f"Gemini API Error: {e}")
-        return "नमस्ते सखी! मुझे आपका सवाल मिला, लेकिन तकनीकी समस्या के कारण अभी जवाब नहीं बन पाया।"
+        print(f"Groq API Error: {e}")
+        return "नमस्ते सखी! मुझे आपका संदेश मिला, लेकिन तकनीकी कारण से जवाब नहीं बन पाया। कृपया थोड़ी देर बाद पुनः पूछें।"
 
 @app.route("/", methods=["GET", "HEAD"])
 def home():
-    return "Gyan Sakhi Bot is Live!", 200
+    return "Gyan Sakhi (Groq Engine) is Live!", 200
 
 @app.route("/webhook", methods=["GET"])
 def verify():
@@ -65,9 +79,6 @@ def verify():
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json()
-    print("--- WEBHOOK EVENT RECEIVED ---")
-    print("Raw Data:", data)
-
     try:
         entry_list = data.get("entry", [])
         if not entry_list:
@@ -81,20 +92,36 @@ def webhook():
         messages = value.get("messages", [])
 
         if not messages:
-            print("No new message from user (event is delivery receipt/read status).")
             return "EVENT_RECEIVED", 200
 
         user_msg = messages[0]
         from_number = user_msg.get("from")
-        text = user_msg.get("text", {}).get("body", "")
+        text = user_msg.get("text", {}).get("body", "").strip()
 
         print(f"Incoming message from {from_number}: {text}")
 
-        # 1. Gemini AI Call
-        ai_reply = get_gemini_reply(text) if text else "नमस्ते! मैं ज्ञान सखी हूँ।"
-        print(f"Gemini Generated Reply: {ai_reply[:60]}...")
+        # सामान्य शब्दों पर बिना AI के त्वरित और मुफ़्त जवाब (Token Saver)
+        clean_text = text.lower()
+        if clean_text in ["hi", "hello", "namaste", "नमस्ते", "प्रणाम"]:
+            ai_reply = (
+                "नमस्ते सखी! 🙏 मैं 'ज्ञान सखी' हूँ — बिहार की छात्राओं के लिए आपकी अपनी डिजिटल दीदी।\n\n"
+                "आप मुझसे पढ़ाई (गणित, विज्ञान, अंग्रेज़ी), मैट्रिक/इंटर के बाद करियर, "
+                "मुख्यमंत्री कन्या उत्थान योजना (MKUY) या स्वास्थ्य से जुड़ा कोई भी सवाल पूछ सकती हैं।\n\n"
+                "बताइए, आज मैं आपकी क्या मदद करूँ?"
+            )
+        elif "helpline" in clean_text or "हेल्पलाइन" in clean_text:
+            ai_reply = (
+                "📌 **ज़रूरी हेल्पलाइन नंबर:**\n\n"
+                "• आपातकालीन सहायता: 112\n"
+                "• महिला हेल्पलाइन: 181\n"
+                "• साइबर फ्रॉड: 1930\n"
+                "• चाइल्डलाइन: 1098\n"
+                "• स्वास्थ्य परामर्श: 104"
+            )
+        else:
+            ai_reply = get_groq_reply(text) if text else "नमस्ते! मैं ज्ञान सखी हूँ।"
 
-        # 2. Send WhatsApp Message
+        # Meta WhatsApp Graph API द्वारा संदेश भेजें
         send_url = f"https://graph.facebook.com/v22.0/{PHONE_NUMBER_ID}/messages"
         headers = {
             "Authorization": f"Bearer {ACCESS_TOKEN}",
@@ -108,11 +135,10 @@ def webhook():
         }
 
         resp = requests.post(send_url, json=payload, headers=headers)
-        print(f"Meta Graph API Status Code: {resp.status_code}")
-        print(f"Meta Graph API Response: {resp.text}")
+        print(f"Meta Graph API Status: {resp.status_code}")
 
     except Exception as e:
-        print(f"Error handling webhook payload: {e}")
+        print(f"Webhook processing error: {e}")
 
     return "EVENT_RECEIVED", 200
 
