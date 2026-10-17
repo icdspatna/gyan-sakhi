@@ -39,7 +39,8 @@ def verify():
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json()
-    print("Received Webhook Payload:", data)
+    print("--- NEW WEBHOOK EVENT ---")
+    print("Payload:", data)
 
     try:
         entry = data.get("entry", [])[0]
@@ -48,7 +49,7 @@ def webhook():
         messages = value.get("messages", [])
 
         if not messages:
-            print("No user message in payload (likely status update).")
+            print("Status update received, no user message.")
             return "EVENT_RECEIVED", 200
 
         user_msg = messages[0]
@@ -57,7 +58,7 @@ def webhook():
 
         print(f"User Message from {from_number}: {text}")
 
-        # Gemini से उत्तर प्राप्त करें
+        # Gemini AI Call
         ai_reply = "नमस्ते! मैं ज्ञान सखी हूँ।"
         if client and text:
             try:
@@ -66,12 +67,12 @@ def webhook():
                     contents=f"{SYSTEM_INSTRUCTION}\n\nछात्रा का सवाल: {text}"
                 )
                 ai_reply = response.text
-                print(f"Gemini Response: {ai_reply[:60]}...")
+                print(f"Gemini Replied: {ai_reply[:50]}...")
             except Exception as e:
-                print(f"Error calling Gemini: {e}")
+                print(f"Gemini API Error: {e}")
                 ai_reply = "सखी, मुझे आपका संदेश मिला। मैं अभी सोचने में व्यस्त हूँ, कृपया थोड़ी देर बाद पुनः प्रयास करें।"
 
-        # WhatsApp पर उत्तर भेजें
+        # Send WhatsApp Message
         send_url = f"https://graph.facebook.com/v22.0/{PHONE_NUMBER_ID}/messages"
         headers = {
             "Authorization": f"Bearer {ACCESS_TOKEN}",
@@ -85,10 +86,11 @@ def webhook():
         }
 
         resp = requests.post(send_url, json=payload, headers=headers)
-        print(f"WhatsApp Send Status: {resp.status_code}, Response: {resp.text}")
+        print(f"WhatsApp API Status: {resp.status_code}")
+        print(f"WhatsApp API Response: {resp.text}")
 
     except Exception as e:
-        print(f"Error processing webhook: {e}")
+        print(f"Processing Error: {e}")
 
     return "EVENT_RECEIVED", 200
 
