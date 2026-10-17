@@ -2,13 +2,13 @@ import os
 import requests
 from flask import Flask, request
 from google import genai
+from google.genai import types
 
 app = Flask(__name__)
 
 VERIFY_TOKEN = "gyan_sakhi_secret_123"
 PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID")
 ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 SYSTEM_INSTRUCTION = (
     "आप 'ज्ञान सखी' (Gyan Sakhi) हैं, बिहार के ग्रामीण क्षेत्र की छात्राओं (कक्षा 8 से 12वीं) "
@@ -17,13 +17,26 @@ SYSTEM_INSTRUCTION = (
     "शिक्षा, करियर (मैट्रिक/इंटर के बाद विकल्प), छात्रवृत्ति और व्यक्तिगत मार्गदर्शन में संक्षेप में और स्पष्ट सलाह दें।"
 )
 
-client = None
-if GEMINI_API_KEY:
+def get_gemini_reply(user_text):
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        print("Error: GEMINI_API_KEY environment variable not found!")
+        return "नमस्ते सखी! सिस्टम में API Key कॉन्फ़िगर नहीं है।"
+
     try:
-        client = genai.Client(api_key=GEMINI_API_KEY)
-        print("Gemini Client initialized successfully.")
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=user_text,
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_INSTRUCTION,
+                temperature=0.7,
+            )
+        )
+        return response.text
     except Exception as e:
-        print(f"Error initializing Gemini: {e}")
+        print(f"Gemini API Error: {e}")
+        return "नमस्ते सखी! मुझे आपका सवाल मिला, लेकिन अभी जवाब तैयार करने में समस्या आ रही है।"
 
 @app.route("/", methods=["GET", "HEAD"])
 def home():
@@ -63,18 +76,8 @@ def webhook():
         print(f"Incoming message from {from_number}: {text}")
 
         # 1. Gemini AI Call
-        ai_reply = "नमस्ते! मैं ज्ञान सखी हूँ।"
-        if client and text:
-            try:
-                response = client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=f"{SYSTEM_INSTRUCTION}\n\nछात्रा का सवाल: {text}"
-                )
-                ai_reply = response.text
-                print(f"Gemini Generated Reply: {ai_reply[:60]}...")
-            except Exception as e:
-                print(f"Gemini API Error: {e}")
-                ai_reply = "नमस्ते सखी! मुझे आपका सवाल मिला, लेकिन अभी जवाब तैयार करने में समस्या आ रही है।"
+        ai_reply = get_gemini_reply(text) if text else "नमस्ते! मैं ज्ञान सखी हूँ।"
+        print(f"Gemini Generated Reply: {ai_reply[:60]}...")
 
         # 2. Send WhatsApp Message
         send_url = f"https://graph.facebook.com/v22.0/{PHONE_NUMBER_ID}/messages"
