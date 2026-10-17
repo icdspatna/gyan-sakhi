@@ -1,20 +1,29 @@
 import os
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, request
 from google import genai
 
 app = Flask(__name__)
 
-ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN")
+VERIFY_TOKEN = "gyan_sakhi_secret_123"
 PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID")
+ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-VERIFY_TOKEN = "gyansakhi123"
 
-client = genai.Client(api_key=GEMINI_API_KEY)
+SYSTEM_INSTRUCTION = (
+    "आप 'ज्ञान सखी' (Gyan Sakhi) हैं, बिहार के ग्रामीण क्षेत्र की छात्राओं (कक्षा 8 से 12वीं) "
+    "के लिए एक मित्रवत, मार्गदर्शक और प्रेरक AI साथी। "
+    "छात्राओं से सरल, सहज और सम्मानजनक हिंदी में बात करें। "
+    "शिक्षा, करियर (मैट्रिक/इंटर के बाद विकल्प), छात्रवृत्ति और व्यक्तिगत मार्गदर्शन में संक्षेप में और स्पष्ट सलाह दें।"
+)
 
-@app.route("/", methods=["GET"])
+client = None
+if GEMINI_API_KEY:
+    client = genai.Client(api_key=GEMINI_API_KEY)
+
+@app.route("/", methods=["GET", "HEAD"])
 def home():
-    return "Gyan Sakhi Bot is Active!", 200
+    return "Gyan Sakhi Bot is Live!", 200
 
 @app.route("/webhook", methods=["GET"])
 def verify():
@@ -23,56 +32,65 @@ def verify():
     challenge = request.args.get("hub.challenge")
 
     if mode == "subscribe" and token == VERIFY_TOKEN:
+        print("Webhook verified successfully!")
         return challenge, 200
     return "Verification token mismatch", 403
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json()
+    print("Received Webhook Payload:", data)
 
-    if data.get("entry"):
-        for entry in data["entry"]:
-            for change in entry.get("changes", []):
-                value = change.get("value", {})
-                messages = value.get("messages", [])
+    try:
+        entry = data.get("entry", [])[0]
+        changes = entry.get("changes", [])[0]
+        value = changes.get("value", {})
+        messages = value.get("messages", [])
 
-                if messages:
-                    msg = messages[0]
-                    from_number = msg.get("from")
+        if not messages:
+            print("No user message in payload (likely status update).")
+            return "EVENT_RECEIVED", 200
 
-                    if msg.get("type") == "text":
-                        user_text = msg["text"]["body"]
+        user_msg = messages[0]
+        from_number = user_msg.get("from")
+        text = user_msg.get("text", {}).get("body", "")
 
-                        prompt = f"""तुम 'ज्ञान सखी' हो — बिहार की ग्रामीण छात्राओं (8वीं-12वीं) के लिए एक दयालु और समझदार AI दीदी।
-छात्रा ने पूछा है: "{user_text}"
-अगर सवाल भोजपुरी, मगही या हिंदी में हो, उसे समझो और 2-3 वाक्यों में बहुत ही सरल, शुद्ध और आत्मीय हिंदी में उत्तर दो।"""
+        print(f"User Message from {from_number}: {text}")
 
-                        try:
-                            response = client.models.generate_content(
-                                model='gemini-2.5-flash',
-                                contents=prompt
-                            )
-                            reply_text = response.text
-                        except Exception:
-                            reply_text = "माफ़ करना सखी, उत्तर खोजने में थोड़ी समस्या हुई। दोबारा पूछो ना!"
+        # Gemini से उत्तर प्राप्त करें
+        ai_reply = "नमस्ते! मैं ज्ञान सखी हूँ।"
+        if client and text:
+            try:
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=f"{SYSTEM_INSTRUCTION}\n\nछात्रा का सवाल: {text}"
+                )
+                ai_reply = response.text
+                print(f"Gemini Response: {ai_reply[:60]}...")
+            except Exception as e:
+                print(f"Error calling Gemini: {e}")
+                ai_reply = "सखी, मुझे आपका संदेश मिला। मैं अभी सोचने में व्यस्त हूँ, कृपया थोड़ी देर बाद पुनः प्रयास करें।"
 
-                        send_whatsapp_message(from_number, reply_text)
+        # WhatsApp पर उत्तर भेजें
+        send_url = f"https://graph.facebook.com/v22.0/{PHONE_NUMBER_ID}/messages"
+        headers = {
+            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": from_number,
+            "type": "text",
+            "text": {"body": ai_reply}
+        }
 
-    return jsonify({"status": "success"}), 200
+        resp = requests.post(send_url, json=payload, headers=headers)
+        print(f"WhatsApp Send Status: {resp.status_code}, Response: {resp.text}")
 
-def send_whatsapp_message(to, text):
-    url = f"https://graph.facebook.com/v20.0/{PHONE_NUMBER_ID}/messages"
-    headers = {
-        "Authorization": f"Bearer {ACCESS_TOKEN}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": to,
-        "type": "text",
-        "text": {"body": text}
-    }
-    requests.post(url, json=payload, headers=headers)
+    except Exception as e:
+        print(f"Error processing webhook: {e}")
+
+    return "EVENT_RECEIVED", 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
