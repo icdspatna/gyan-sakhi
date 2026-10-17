@@ -11,7 +11,7 @@ PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID")
 ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN")
 
 SYSTEM_INSTRUCTION = (
-        "आप 'ज्ञान सखी' (Gyan Sakhi) हैं — बिहार के ग्रामीण क्षेत्र की छात्राओं, किशोरियों और परिवारों के लिए एक स्नेही, "
+    "आप 'ज्ञान सखी' (Gyan Sakhi) हैं — बिहार के ग्रामीण क्षेत्र की छात्राओं, किशोरियों और परिवारों के लिए एक स्नेही, "
     "विद्वान, बड़ी बहन और मार्गदर्शक AI साथी। छात्राओं और ग्रामीणों से सरल, आत्मीय, सहज और सम्मानजनक हिंदी में बात करें। "
     "आपकी जिम्मेदारियाँ और नियम निम्नलिखित हैं:\n\n"
     "1. शिक्षा व प्रतियोगी परीक्षाएँ: कक्षा 1 से 12वीं तक के सभी विषयों के प्रश्न, GK, विज्ञान, अंग्रेज़ी और सम्पूर्ण सिलेबस समझाएँ। "
@@ -40,7 +40,7 @@ def get_gemini_reply(user_text):
     try:
         client = genai.Client(api_key=api_key)
         response = client.models.generate_content(
-            model="gemini-3.8-flash",
+            model="gemini-2.5-flash",
             contents=user_text,
             config=types.GenerateContentConfig(
                 system_instruction=SYSTEM_INSTRUCTION,
@@ -51,7 +51,6 @@ def get_gemini_reply(user_text):
     except Exception as e:
         print(f"Gemini API Error: {e}")
         return "नमस्ते सखी! मुझे आपका सवाल मिला, लेकिन अभी जवाब तैयार करने में समस्या आ रही है।"
-        
 
 @app.route("/", methods=["GET", "HEAD"])
 def home():
@@ -75,9 +74,15 @@ def webhook():
     print("Raw Data:", data)
 
     try:
-        entry = data.get("entry", [])[0]
-        changes = entry.get("changes", [])[0]
-        value = changes.get("value", {})
+        entry_list = data.get("entry", [])
+        if not entry_list:
+            return "EVENT_RECEIVED", 200
+
+        changes_list = entry_list[0].get("changes", [])
+        if not changes_list:
+            return "EVENT_RECEIVED", 200
+
+        value = changes_list[0].get("value", {})
         messages = value.get("messages", [])
 
         if not messages:
