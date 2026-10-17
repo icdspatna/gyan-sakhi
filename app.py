@@ -37,20 +37,30 @@ def get_gemini_reply(user_text):
         print("Error: GEMINI_API_KEY environment variable not found!")
         return "नमस्ते सखी! सिस्टम में API Key कॉन्फ़िगर नहीं है।"
 
-    try:
-        client = genai.Client(api_key=api_key)
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=user_text,
-            config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_INSTRUCTION,
-                temperature=0.7,
+    # प्राथमिकता क्रम में मॉडल्स की सूची
+    models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+
+    client = genai.Client(api_key=api_key)
+
+    for model_name in models_to_try:
+        try:
+            print(f"Trying Gemini model: {model_name}...")
+            response = client.models.generate_content(
+                model=model_name,
+                contents=user_text,
+                config=types.GenerateContentConfig(
+                    system_instruction=SYSTEM_INSTRUCTION,
+                    temperature=0.7,
+                    max_output_tokens=500
+                )
             )
-        )
-        return response.text
-    except Exception as e:
-        print(f"Gemini API Error: {e}")
-        return "नमस्ते सखी! मुझे आपका सवाल मिला, लेकिन अभी जवाब तैयार करने में समस्या आ रही है।"
+            if response.text:
+                return response.text
+        except Exception as e:
+            print(f"Failed with {model_name}: {e}")
+            continue  # अगला मॉडल आज़माएँ
+
+    return "नमस्ते सखी! मुझे आपका सवाल मिला, लेकिन AI सर्वर पर अधिक लोड होने के कारण अभी जवाब नहीं बन पाया। कृपया 1 मिनट बाद पुनः पूछें।"
 
 @app.route("/", methods=["GET", "HEAD"])
 def home():
