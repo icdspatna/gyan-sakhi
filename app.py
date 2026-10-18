@@ -108,7 +108,27 @@ def webhook():
 
         print(f"Incoming message from {from_number}: {text}")
 
-      # सामान्य शब्दों पर बिना AI के त्वरित और मुफ़्त जवाब (Token Saver)
+        # 1. Google Sheets में लॉग भेजें
+        contacts = value.get("contacts", [])
+        sender_name = contacts[0].get("profile", {}).get("name", "Unknown") if contacts else "Unknown"
+
+        sheet_url = os.environ.get("https://script.google.com/macros/s/AKfycbz5T_MtGGGhnfEy5wqguHHZVf71oKAgUq-SJXxJ5KEam8nsM1bwZhAonY7mi0YBy3ZJJA/exec")
+        if sheet_url:
+            try:
+                requests.post(
+                    sheet_url,
+                    json={
+                        "sender_name": sender_name,
+                        "phone": from_number,
+                        "location": "Not specified",
+                        "message": text
+                    },
+                    timeout=3
+                )
+            except Exception as err:
+                print(f"Sheet log error: {err}")
+
+        # 2. सामान्य शब्दों पर बिना AI के त्वरित और मुफ़्त जवाब
         clean_text = text.lower()
         blocked_keywords = ["सेक्स", "sex", "कंडोम", "गर्भपात", "प्रेगनेंसी टेस्ट"]
 
@@ -138,7 +158,7 @@ def webhook():
         else:
             ai_reply = get_groq_reply(text) if text else "नमस्ते! मैं ज्ञान सखी हूँ।"
 
-        # Meta WhatsApp Graph API द्वारा संदेश भेजें
+        # 3. Meta WhatsApp Graph API द्वारा संदेश भेजें
         send_url = f"https://graph.facebook.com/v22.0/{PHONE_NUMBER_ID}/messages"
         headers = {
             "Authorization": f"Bearer {ACCESS_TOKEN}",
@@ -158,26 +178,3 @@ def webhook():
         print(f"Webhook processing error: {e}")
 
     return "EVENT_RECEIVED", 200
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
-   # यूज़र का प्रोफ़ाइल नाम निकालें
-        contacts = value.get("contacts", [])
-        sender_name = contacts[0].get("profile", {}).get("name", "Unknown") if contacts else "Unknown"
-
-        # Google Sheets में लॉग भेजें
-        sheet_url = os.environ.get("https://script.google.com/macros/s/AKfycbz5T_MtGGGhnfEy5wqguHHZVf71oKAgUq-SJXxJ5KEam8nsM1bwZhAonY7mi0YBy3ZJJA/exec")
-        if sheet_url:
-            try:
-                requests.post(
-                    sheet_url,
-                    json={
-                        "sender_name": sender_name,
-                        "phone": from_number,
-                        "location": "Not specified",
-                        "message": text
-                    },
-                    timeout=3
-                )
-            except Exception as err:
-                print(f"Sheet log error: {err}")
