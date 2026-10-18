@@ -11,9 +11,6 @@ PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID")
 ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
-# Groq क्लाइंट आरंभ करें
-groq_client = Groq(api_key=GROQ_API_KEY)
-
 SYSTEM_INSTRUCTION = """
 आप 'ज्ञान सखी' (Gyan Sakhi) हैं — बिहार के ग्रामीण क्षेत्र की छात्राओं (कक्षा 8 से 12वीं), किशोरियों और परिवारों के लिए एक स्नेही, विद्वान, बड़ी बहन और मार्गदर्शक AI साथी। 
 छात्राओं और ग्रामीणों से सरल, आत्मीय, सहज और सम्मानजनक हिंदी में बात करें।
@@ -36,38 +33,35 @@ SYSTEM_INSTRUCTION = """
    - आपातकाल: 112 | महिला हेल्पलाइन: 181 | साइबर फ्रॉड: 1930 | चाइल्डलाइन: 1098
    - साइबर फ्रॉड (OTP/फर्जी लॉटरी) से सतर्क रहने की सलाह दें।
 
-5. संवाद शैली: 
-   - WhatsApp के अनुकूल जवाब छोटे, बिंदुवार (bullet points) और पढ़ने में आसान रखें।
-   - यदि छात्रा हिंग्लिश में भी सवाल पूछे, तो भी उत्तर हमेशा सरल देवनागरी हिंदी में दें।
+5. सख्त मर्यादा और निषेध नियम:
+   - यौन संबंध (Sex), गर्भनिरोधक या व्यक्तिगत प्रेम-संबंधों से जुड़े किसी भी सवाल पर कोई चर्चा न करें।
 
-6. सख्त मर्यादा और निषेध नियम (Strict Boundaries):
-   - यौन संबंध (Sex), गर्भनिरोधक (Contraceptives) या व्यक्तिगत प्रेम-संबंधों से जुड़े किसी भी सवाल पर कोई चर्चा या व्याख्या न करें।
-   - यदि कोई इस प्रकार का सवाल पूछे, तो शालीनता से कहें: 
-     "नमस्ते सखी! मैं केवल पढ़ाई, सरकारी छात्रवृत्ति, करियर और सामान्य स्वास्थ्य से जुड़े विषयों पर ही मार्गदर्शन करती हूँ। व्यक्तिगत या चिकित्सीय सलाह के लिए कृपया अपनी आशा दीदी, महिला डॉक्टर या 104 नंबर पर संपर्क करें।"
-   - किसी भी अश्लील, भ्रामक या अनुचित सवाल का जवाब न दें।
+6. संवाद शैली: 
+   - WhatsApp के अनुकूल जवाब छोटे, बिंदुवार (bullet points) और पढ़ने में आसान रखें।
+   - उत्तर हमेशा सरल देवनागरी हिंदी में दें।
 """
 
 def get_groq_reply(user_text):
-  groq_api_key = os.environ.get("GROQ_API_KEY")
-  if not groq_api_key:
-    print("Error: GROQ_API_KEY missing!")
-    return "नमस्ते सखी! सिस्टम में Groq API Key सेट नहीं है।"
+    groq_key = os.environ.get("GROQ_API_KEY")
+    if not groq_key:
+        print("Error: GROQ_API_KEY missing!")
+        return "नमस्ते सखी! सिस्टम में Groq API Key सेट नहीं है।"
 
-  try:
-    client = Groq(api_key=groq_api_key.strip())
-    response = client.chat.completions.create(
-        model="openai/gpt-oss-120b",  # <--- स्क्रीन पर दिख रहा एक्टिव मॉडल
-        messages=[
-            {"role": "system", "content": SYSTEM_INSTRUCTION},
-            {"role": "user", "content": user_text},
-        ],
-        temperature=0.3,
-        max_tokens=800,
-    )
-    return response.choices[0].message.content
-  except Exception as e:
-    print(f"Groq API Error: {e}")
-    return "नमस्ते सखी! तकनीकी समस्या के कारण अभी जवाब नहीं बन पाया।"
+    try:
+        client = Groq(api_key=groq_key.strip())
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=[
+                {"role": "system", "content": SYSTEM_INSTRUCTION},
+                {"role": "user", "content": user_text},
+            ],
+            temperature=0.3,
+            max_tokens=800,
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"Groq API Error: {e}")
+        return "नमस्ते सखी! मुझे आपका संदेश मिला, लेकिन तकनीकी कारण से जवाब नहीं बन पाया। कृपया थोड़ी देर बाद पुनः पूछें।"
 
 @app.route("/", methods=["GET", "HEAD"])
 def home():
@@ -177,3 +171,6 @@ def webhook():
         print(f"Webhook processing error: {e}")
 
     return "EVENT_RECEIVED", 200
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
