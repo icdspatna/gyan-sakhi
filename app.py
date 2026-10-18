@@ -112,21 +112,20 @@ def webhook():
         contacts = value.get("contacts", [])
         sender_name = contacts[0].get("profile", {}).get("name", "Unknown") if contacts else "Unknown"
 
-        sheet_url = os.environ.get("https://script.google.com/macros/s/AKfycbz5T_MtGGGhnfEy5wqguHHZVf71oKAgUq-SJXxJ5KEam8nsM1bwZhAonY7mi0YBy3ZJJA/exec")
-        if sheet_url:
-            try:
-                requests.post(
-                    sheet_url,
-                    json={
-                        "sender_name": sender_name,
-                        "phone": from_number,
-                        "location": "Not specified",
-                        "message": text
-                    },
-                    timeout=3
-                )
-            except Exception as err:
-                print(f"Sheet log error: {err}")
+        sheet_url = "https://script.google.com/macros/s/AKfycbz5T_MtGGGhnfEy5wqguHHZVf71oKAgUq-SJXxJ5KEam8nsM1bwZhAonY7mi0YBy3ZJJA/exec"
+        try:
+            requests.post(
+                sheet_url,
+                json={
+                    "sender_name": sender_name,
+                    "phone": from_number,
+                    "location": "Not specified",
+                    "message": text
+                },
+                timeout=3
+            )
+        except Exception as err:
+            print(f"Sheet log error: {err}")
 
         # 2. सामान्य शब्दों पर बिना AI के त्वरित और मुफ़्त जवाब
         clean_text = text.lower()
