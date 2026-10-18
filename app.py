@@ -166,7 +166,7 @@ if __name__ == "__main__":
         sender_name = contacts[0].get("profile", {}).get("name", "Unknown") if contacts else "Unknown"
 
         # Google Sheets में लॉग भेजें
-        sheet_url = os.environ.get("SHEET_URL")
+        sheet_url = os.environ.get("https://script.google.com/macros/s/AKfycbz5T_MtGGGhnfEy5wqguHHZVf71oKAgUq-SJXxJ5KEam8nsM1bwZhAonY7mi0YBy3ZJJA/exec")
         if sheet_url:
             try:
                 requests.post(
