@@ -161,3 +161,23 @@ def webhook():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
+   # यूज़र का प्रोफ़ाइल नाम निकालें
+        contacts = value.get("contacts", [])
+        sender_name = contacts[0].get("profile", {}).get("name", "Unknown") if contacts else "Unknown"
+
+        # Google Sheets में लॉग भेजें
+        sheet_url = os.environ.get("SHEET_URL")
+        if sheet_url:
+            try:
+                requests.post(
+                    sheet_url,
+                    json={
+                        "sender_name": sender_name,
+                        "phone": from_number,
+                        "location": "Not specified",
+                        "message": text
+                    },
+                    timeout=3
+                )
+            except Exception as err:
+                print(f"Sheet log error: {err}")
