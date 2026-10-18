@@ -106,7 +106,7 @@ def webhook():
         contacts = value.get("contacts", [])
         sender_name = contacts[0].get("profile", {}).get("name", "Unknown") if contacts else "Unknown"
 
-        sheet_url = "https://script.google.com/macros/s/AKfycbz5T_MtGGGhnfEy5wqguHHZVf71oKAgUq-SJXxJ5KEam8nsM1bwZhAonY7mi0YBy3ZJJA/exec"
+        sheet_url = "https://script.google.com/macros/s/AKfycbzcPCEKD5Ib572CyzCRgoLK1QfAB7_oMJ1B-glzRoIfnETPWM1s-EJqzJBn-74G3oo4Gw/exec"
         try:
             requests.post(
                 sheet_url,
